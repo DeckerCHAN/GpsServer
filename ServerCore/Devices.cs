@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace GPSServer.ServerCore
 {
-    internal class Device:IEnumerable
+    internal class Devices:IEnumerable
     {
         public IEnumerator GetEnumerator()
         {
@@ -15,7 +15,7 @@ namespace GPSServer.ServerCore
         }
     }
 
-    internal class DeviceList : List<Device>
+    internal class DeviceList : List<Devices>
     {
         public DeviceList()
         {

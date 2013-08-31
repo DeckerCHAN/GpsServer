@@ -14,6 +14,7 @@ namespace GPSServer.ServerConsoleVersion
              var myServer = new Server(Convert.ToInt16(Console.ReadLine()));
             myServer.ServerStarted += (i, o) => Console.WriteLine("Server Starded! Port:"+o.ToString());
             myServer.ServerStoped += (i, o) => Console.WriteLine("Server Stoped!");
+            myServer.ServerError += (i, o) => Console.WriteLine("Server Error! Port:" + o.ToString());
             myServer.MessegeProcessed += (i, o) => Console.WriteLine(Environment.NewLine+"Messege Hearded:"+o.ToString());
             Console.WriteLine("Please Enter Your Command:");
 

@@ -64,32 +64,32 @@ namespace GPSServer.ServerCore
         private void ProcessMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
         {
             //TODO:将获得的内容放入
-            this.OnMessegeProcessed(e.Session.ConnectTime + "StartProcess!");
+            this.OnMessegeProcessed(e.Session.ConnectTime + "Start Connect!");
             new Thread(argSession =>
             {
                 try
                 {
                     var session = argSession as TCP_ServerSession;
                     var msg = session.TcpStream;
-                    var ip = session.RemoteEndPoint.ToString();
+                     
                     var char16 = new StringBuilder();
-                    char16.Append(" FROM: " + ip + " MSG:");
-                  
-                    var buffer = new byte[16384];
-                    msg.Read(buffer, 0, 16384);
+                    char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+
+                    //var buffer = new byte[16384];
+                    //msg.Read(buffer, 0, 16384);
 
 
-                    foreach (var t in buffer)
-                    {
-                        if (t > 0)
-                        {
-                            char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
+                    //foreach (var t in buffer)
+                    //{
+                    //    if (t > 0)
+                    //    {
+                    //        char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
+                    //    }
+                    //    else
+                    //    {
+                    //        break;
+                    //    }
+                    //}
 
 
                     //while (true)
@@ -104,12 +104,47 @@ namespace GPSServer.ServerCore
                     //        break;
                     //    }
                     //}
+                    byte[] buffer;
+                    while (true)
+                    {
+                        buffer = new byte[16384];
+                        msg.Read(buffer, 0, 16384);
 
 
-                    // e.Session.TcpStream
-                    //    session.TcpStream.Write(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a }, 0, 10);
+                        if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0 && buffer[4] == 0)
+                        {
+                            this.OnMessegeProcessed(session.ConnectTime + "Disconnect");
+                            session.Disconnect();
 
-                    this.OnMessegeProcessed(session.ConnectTime+char16.ToString());
+
+                            break;
+                        }
+                        else
+                        {
+                            char16 = new StringBuilder();
+                            char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+                            foreach (var t in buffer)
+                            {
+                                if (t > 0)
+                                {
+                                    char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                            this.OnMessegeProcessed(session.ConnectTime + char16.ToString());
+
+                        }
+
+                    }
+
+                    //    e.Session.TcpStream
+                    //session.TcpStream.Write(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a }, 0, 10);
+                    //session.TcpStream.Flush();
+
+                    //this.OnMessegeProcessed(session.ConnectTime + char16.ToString());
                     //var back = new TCP_Client();
                     //back.TcpStream.Write(
                     //    new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a }, 0, 10);
@@ -119,7 +154,7 @@ namespace GPSServer.ServerCore
                     //new Socket(AddressFamily.HyperChannel, SocketType.Stream, ProtocolType.Tcp).Send(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a });
                     //session.TcpStream.Flush();
 
-                   // session.Disconnect();
+                    //session.Disconnect();
 
                 }
                 catch (Exception ex)

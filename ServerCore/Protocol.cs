@@ -30,7 +30,7 @@ namespace GPSServer.ServerCore.Protocol
         }
 
         public Symbol[] SymbolList { get; set; }
-        public string ProtocolName { [UsedImplicitly] private get; set; }
+        public string ProtocolName { private get; set; }
     }
 
     internal struct Symbol

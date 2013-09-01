@@ -2,9 +2,11 @@
 using System.Net;
 using System.Text;
 using System.Threading;
+using GPSServer.ServerCore.Connect;
 using LumiSoft.Net;
 using LumiSoft.Net.IO;
 using LumiSoft.Net.TCP;
+
 
 namespace GPSServer.ServerCore
 {
@@ -25,24 +27,26 @@ namespace GPSServer.ServerCore
 
     public class Server
     {
-        private readonly TCP_Server<TCP_ServerSession> Core;
+        private TCP_Server<TCP_ServerSession> _core;
+        private ConnectList _connects;
         private Object DataBase;
+
         //TODO:通过GET和SET加入对服务器的控制！
         //TODO:控制服务器ProcessMessege返回值
 
         public Server(int port)
         {
-            Core = new TCP_Server<TCP_ServerSession>();
+            _core = new TCP_Server<TCP_ServerSession>();
+            _connects = new ConnectList();
 
             try
             {
-                Core.Started += (i, o) => OnServerStarted();
-                Core.Stopped += (i, o) => OnServerStoped();
-                Core.Error += CoreError;
-                Core.SessionCreated += ProcessMessege;
+                _core.Started += (i, o) => OnServerStarted();
+                _core.Stopped += (i, o) => OnServerStoped();
+                _core.Error += CoreError;
+                _core.SessionCreated += ProcessMessege;
 
-                Core.Bindings = new[]
-                {new IPBindInfo(Dns.GetHostEntry(String.Empty).HostName, BindInfoProtocol.TCP, IPAddress.Any, port)};
+                _core.Bindings = new[] { new IPBindInfo(Dns.GetHostEntry(String.Empty).HostName, BindInfoProtocol.TCP, IPAddress.Any, port) };
             }
             catch (Exception ex)
             {
@@ -57,7 +61,10 @@ namespace GPSServer.ServerCore
         private void ProcessMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
         {
             //TODO:将获得的内容放入
-            OnMessegeProcessed(e.Session.ConnectTime + "Start Connect!");
+            OnMessegeProcessed(e.Session.ConnectTime + "Connect Established!");
+
+
+
             new Thread(argSession =>
             {
                 try
@@ -67,36 +74,6 @@ namespace GPSServer.ServerCore
 
                     var char16 = new StringBuilder();
                     char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-
-                    //var buffer = new byte[16384];
-                    //msg.Read(buffer, 0, 16384);
-
-
-                    //foreach (var t in buffer)
-                    //{
-                    //    if (t > 0)
-                    //    {
-                    //        char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
-                    //    }
-                    //    else
-                    //    {
-                    //        break;
-                    //    }
-                    //}
-
-
-                    //while (true)
-                    //{
-                    //    var temp = msg.ReadByte();
-                    //    if (temp >= 0)
-                    //    {
-                    //        char16.Append(Convert.ToString(temp, 16).ToUpper().PadLeft(2, '0') + " ");
-                    //    }
-                    //    else
-                    //    {
-                    //        break;
-                    //    }
-                    //}
                     byte[] buffer;
                     int repPoint = 0;
                     DateTime lastPoint = DateTime.Now;
@@ -104,42 +81,25 @@ namespace GPSServer.ServerCore
                     {
                         buffer = new byte[16384];
                         msg.Read(buffer, 0, 16384);
-
-
-                        if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0 && buffer[4] == 0)
+                        char16 = new StringBuilder();
+                        char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+                        foreach (byte t in buffer)
                         {
-                            if (repPoint > 5)
+                            if (t > 0)
                             {
-                                OnMessegeProcessed(session.ConnectTime + "Disconnect");
-                                session.Disconnect();
+                                char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
+                            }
+                            else
+                            {
                                 break;
                             }
-                            if ((DateTime.Now - lastPoint).Ticks < 1000000)
-                            {
-                                repPoint++;
-                            }
-                            lastPoint = DateTime.Now;
                         }
-                        else
-                        {
-                            char16 = new StringBuilder();
-                            char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                            foreach (byte t in buffer)
-                            {
-                                if (t > 0)
-                                {
-                                    char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }
-                            session.TcpStream.Write(
-                                new byte[] {0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a}, 0, 10);
-                            session.TcpStream.Flush();
-                            OnMessegeProcessed(session.ConnectTime + char16.ToString());
-                        }
+                        var connsct = this._connects.AddConnect(session.RemoteEndPoint.ToString(), buffer);
+                        var res = connsct.ProcessMessege(buffer);
+                        session.TcpStream.Write(res, 0, res.Length);
+                        session.TcpStream.Flush();
+                        OnMessegeProcessed(session.ConnectTime + char16.ToString());
+
                     }
 
                     //    e.Session.TcpStream
@@ -168,19 +128,19 @@ namespace GPSServer.ServerCore
 
         public void StatrServer()
         {
-            if (!Core.IsRunning)
+            if (!_core.IsRunning)
             {
-                Core.Start();
+                _core.Start();
             }
             else
             {
-                Core.Restart();
+                _core.Restart();
             }
         }
 
         public void StopServer()
         {
-            Core.Stop();
+            _core.Stop();
         }
 
         #endregion
@@ -202,8 +162,8 @@ namespace GPSServer.ServerCore
             EventHandler handler = ServerStarted;
             if (handler != null)
                 handler(this,
-                    new ServerEventArgs(Core.Bindings[0].HostName + " " + Core.Bindings[0].Port + " " +
-                                        Core.Bindings[0].IP));
+                    new ServerEventArgs(_core.Bindings[0].HostName + " " + _core.Bindings[0].Port + " " +
+                                        _core.Bindings[0].IP));
         }
 
         public event EventHandler ServerStoped = null;

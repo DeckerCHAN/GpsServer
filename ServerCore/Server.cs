@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net;
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using LumiSoft.Net;
+using LumiSoft.Net.IO;
 using LumiSoft.Net.TCP;
 
 namespace GPSServer.ServerCore
@@ -16,47 +11,45 @@ namespace GPSServer.ServerCore
     public class ServerEventArgs : EventArgs
     {
         public string EventMessege;
+
         public ServerEventArgs(String eventMessege)
         {
-            this.EventMessege = eventMessege;
+            EventMessege = eventMessege;
         }
 
         public override string ToString()
         {
-            return this.EventMessege;
+            return EventMessege;
         }
     }
+
     public class Server
     {
-        TCP_Server<TCP_ServerSession> Core;
+        private readonly TCP_Server<TCP_ServerSession> Core;
         private Object DataBase;
         //TODO:通过GET和SET加入对服务器的控制！
         //TODO:控制服务器ProcessMessege返回值
 
         public Server(int port)
         {
-            this.Core = new TCP_Server<TCP_ServerSession>();
+            Core = new TCP_Server<TCP_ServerSession>();
 
             try
             {
-                this.Core.Started += (i, o) => this.OnServerStarted();
-                this.Core.Stopped += (i, o) => this.OnServerStoped();
-                this.Core.Error += CoreError;
-                this.Core.SessionCreated += ProcessMessege;
+                Core.Started += (i, o) => OnServerStarted();
+                Core.Stopped += (i, o) => OnServerStoped();
+                Core.Error += CoreError;
+                Core.SessionCreated += ProcessMessege;
 
-                this.Core.Bindings = new[] { new IPBindInfo(Dns.GetHostEntry(String.Empty).HostName, BindInfoProtocol.TCP, IPAddress.Any, port) };
-
-
+                Core.Bindings = new[]
+                {new IPBindInfo(Dns.GetHostEntry(String.Empty).HostName, BindInfoProtocol.TCP, IPAddress.Any, port)};
             }
             catch (Exception ex)
             {
-
-
             }
-
         }
 
-        void CoreError(object sender, Error_EventArgs e)
+        private void CoreError(object sender, Error_EventArgs e)
         {
             OnServerError(e.Text);
         }
@@ -64,14 +57,14 @@ namespace GPSServer.ServerCore
         private void ProcessMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
         {
             //TODO:将获得的内容放入
-            this.OnMessegeProcessed(e.Session.ConnectTime + "Start Connect!");
+            OnMessegeProcessed(e.Session.ConnectTime + "Start Connect!");
             new Thread(argSession =>
             {
                 try
                 {
                     var session = argSession as TCP_ServerSession;
-                    var msg = session.TcpStream;
-                     
+                    SmartStream msg = session.TcpStream;
+
                     var char16 = new StringBuilder();
                     char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
 
@@ -105,6 +98,8 @@ namespace GPSServer.ServerCore
                     //    }
                     //}
                     byte[] buffer;
+                    int repPoint = 0;
+                    DateTime lastPoint = DateTime.Now;
                     while (true)
                     {
                         buffer = new byte[16384];
@@ -113,17 +108,23 @@ namespace GPSServer.ServerCore
 
                         if (buffer[0] == 0 && buffer[1] == 0 && buffer[2] == 0 && buffer[3] == 0 && buffer[4] == 0)
                         {
-                            this.OnMessegeProcessed(session.ConnectTime + "Disconnect");
-                            session.Disconnect();
-
-
-                            break;
+                            if (repPoint > 5)
+                            {
+                                OnMessegeProcessed(session.ConnectTime + "Disconnect");
+                                session.Disconnect();
+                                break;
+                            }
+                            if ((DateTime.Now - lastPoint).Ticks < 1000000)
+                            {
+                                repPoint++;
+                            }
+                            lastPoint = DateTime.Now;
                         }
                         else
                         {
                             char16 = new StringBuilder();
                             char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                            foreach (var t in buffer)
+                            foreach (byte t in buffer)
                             {
                                 if (t > 0)
                                 {
@@ -134,15 +135,15 @@ namespace GPSServer.ServerCore
                                     break;
                                 }
                             }
-                            this.OnMessegeProcessed(session.ConnectTime + char16.ToString());
-
+                            session.TcpStream.Write(
+                                new byte[] {0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a}, 0, 10);
+                            session.TcpStream.Flush();
+                            OnMessegeProcessed(session.ConnectTime + char16.ToString());
                         }
-
                     }
 
                     //    e.Session.TcpStream
-                    //session.TcpStream.Write(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a }, 0, 10);
-                    //session.TcpStream.Flush();
+
 
                     //this.OnMessegeProcessed(session.ConnectTime + char16.ToString());
                     //var back = new TCP_Client();
@@ -155,38 +156,37 @@ namespace GPSServer.ServerCore
                     //session.TcpStream.Flush();
 
                     //session.Disconnect();
-
                 }
                 catch (Exception ex)
                 {
-                    this.OnServerError(GetDateString() + ex.Message);
+                    OnServerError(GetDateString() + ex.Message);
                 }
             }).Start(e.Session);
-
-
         }
+
         #region ServerControler
 
         public void StatrServer()
         {
-
-            if (!this.Core.IsRunning)
+            if (!Core.IsRunning)
             {
-                this.Core.Start();
+                Core.Start();
             }
             else
             {
-                this.Core.Restart();
+                Core.Restart();
             }
-
         }
 
         public void StopServer()
         {
-            this.Core.Stop();
+            Core.Stop();
         }
+
         #endregion
+
         #region Events
+
         public event EventHandler MessegeProcessed = null;
 
         protected virtual void OnMessegeProcessed(String messege)
@@ -200,7 +200,10 @@ namespace GPSServer.ServerCore
         protected virtual void OnServerStarted()
         {
             EventHandler handler = ServerStarted;
-            if (handler != null) handler(this, new ServerEventArgs(this.Core.Bindings[0].HostName.ToString() + " " + this.Core.Bindings[0].Port.ToString() + " " + this.Core.Bindings[0].IP.ToString()));
+            if (handler != null)
+                handler(this,
+                    new ServerEventArgs(Core.Bindings[0].HostName + " " + Core.Bindings[0].Port + " " +
+                                        Core.Bindings[0].IP));
         }
 
         public event EventHandler ServerStoped = null;
@@ -220,15 +223,14 @@ namespace GPSServer.ServerCore
         }
 
         #endregion
+
         #region OtherMethods
 
         private string GetDateString()
         {
             return '[' + DateTime.Now.ToString("t") + ']';
         }
+
         #endregion
-
     }
-
-
 }

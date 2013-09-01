@@ -7,20 +7,22 @@ using System.Threading.Tasks;
 
 namespace GPSServer.ServerCore
 {
-    internal class Devices:IEnumerable
+    internal class Devices : IDisposable
     {
-        public IEnumerator GetEnumerator()
+
+        public void Dispose()
         {
             throw new NotImplementedException();
         }
+
     }
 
     internal class DeviceList : List<Devices>
     {
         public DeviceList()
         {
-           
+
         }
-        
+
     }
 }

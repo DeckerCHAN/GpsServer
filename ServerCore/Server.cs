@@ -62,9 +62,6 @@ namespace GPSServer.ServerCore
         {
             //TODO:将获得的内容放入
             OnMessegeProcessed(e.Session.ConnectTime + "Connect Established!");
-
-
-
             new Thread(argSession =>
             {
                 try

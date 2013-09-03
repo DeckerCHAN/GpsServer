@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
 using GPSServer.ServerCore.Connect;
+using GPSServer.ServerCore.Protocol;
 using LumiSoft.Net;
 using LumiSoft.Net.IO;
 using LumiSoft.Net.TCP;
@@ -38,7 +40,7 @@ namespace GPSServer.ServerCore
         {
             _core = new TCP_Server<TCP_ServerSession>();
             _connects = new ConnectList();
-
+            ProtocolManager.Init();
             try
             {
                 _core.Started += (i, o) => OnServerStarted();
@@ -71,27 +73,19 @@ namespace GPSServer.ServerCore
 
                     var char16 = new StringBuilder();
                     char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                    byte[] buffer;
-                    int repPoint = 0;
-                    DateTime lastPoint = DateTime.Now;
                     while (true)
                     {
-                        buffer = new byte[16384];
+                        var buffer = new byte[16384];
                         msg.Read(buffer, 0, 16384);
                         char16 = new StringBuilder();
                         char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
                         foreach (byte t in buffer)
                         {
-                            if (t > 0)
-                            {
+                            
                                 char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
-                            }
-                            else
-                            {
-                                break;
-                            }
+
                         }
-                        var connsct = this._connects.AddConnect(session.RemoteEndPoint.ToString(), buffer);
+                        var connsct = this._connects.Add(session.RemoteEndPoint.ToString(), buffer);
                         var res = connsct.ProcessMessege(buffer);
                         session.TcpStream.Write(res, 0, res.Length);
                         session.TcpStream.Flush();

@@ -71,25 +71,39 @@ namespace GPSServer.ServerCore
                     var session = argSession as TCP_ServerSession;
                     SmartStream msg = session.TcpStream;
 
-                    var char16 = new StringBuilder();
-                    char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+                    var consoleOutput = new StringBuilder();
+                    consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
                     while (true)
                     {
                         var buffer = new byte[16384];
                         msg.Read(buffer, 0, 16384);
-                        char16 = new StringBuilder();
-                        char16.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                        foreach (byte t in buffer)
+                        consoleOutput = new StringBuilder();
+                        consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+                        for (int index = 0; index < 128; index++)
                         {
-                            
-                                char16.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
-
+                            byte t = buffer[index];
+                            consoleOutput.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
                         }
-                        var connsct = this._connects.Add(session.RemoteEndPoint.ToString(), buffer);
-                        var res = connsct.ProcessMessege(buffer);
-                        session.TcpStream.Write(res, 0, res.Length);
-                        session.TcpStream.Flush();
-                        OnMessegeProcessed(session.ConnectTime + char16.ToString());
+                        var content = this._connects.Add(session.RemoteEndPoint.ToString(), buffer);
+                        try
+                        {
+                            var res = content.ProcessMessege(buffer);
+                            session.TcpStream.Write(res, 0, res.Length);
+                            session.TcpStream.Flush();
+                            consoleOutput.Append("REPLY");
+                            foreach (var b in res)
+                            {
+                                consoleOutput.Append(Convert.ToString(b, 16).ToUpper().PadLeft(2, '0') + " ");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+
+                            OnServerError(GetDateString() + ex.Message + ex.ToString());
+                        }
+
+                        OnMessegeProcessed(session.ConnectTime + consoleOutput.ToString());
+                        //TODO:添加单次链接处理异常
 
                     }
 
@@ -106,11 +120,11 @@ namespace GPSServer.ServerCore
                     //new Socket(AddressFamily.HyperChannel, SocketType.Stream, ProtocolType.Tcp).Send(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a });
                     //session.TcpStream.Flush();
 
-                    //session.Disconnect();
+                    session.Disconnect();
                 }
                 catch (Exception ex)
                 {
-                    OnServerError(GetDateString() + ex.Message);
+                    OnServerError(GetDateString() + ex.Message + ex.ToString());
                 }
             }).Start(e.Session);
         }

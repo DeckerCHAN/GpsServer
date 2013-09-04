@@ -7,32 +7,42 @@ namespace GPSServer.ServerCore.Connect
 {
     internal class Connect : IDisposable
     {
+        public DateTime LastActive { get; private set; }
+
+        public string SessionIp { get; private set; }
+        public Protocol.Protocol ConnectProtocol { get; private set; }
+
         public Connect(string ip, byte[] initBuffer)
         {
             SessionIp = ip;
             LastActive = DateTime.Now;
-        }
+            this.ConnectProtocol = Protocol.ProtocolManager.GetProtocol(initBuffer);
+            this.ProcessMessege(initBuffer);
 
-        public string SessionIp { get; private set; }
-        public DateTime LastActive { get; private set; }
+        }
 
         public void Dispose()
         {
-            SessionIp = null;
+           this. SessionIp = null;
+            this.ConnectProtocol = null;
             GC.Collect();
         }
 
         public byte[] ProcessMessege(byte[] rowBuffer)
         {
             Monitor.Enter(this);
+            #region ConvertToStandardBuffer
             var start = Array.IndexOf(rowBuffer, Byte.Parse("120"), 0, 2);
             var end = Array.LastIndexOf(rowBuffer, Byte.Parse("13"))+1;
             var buffer = new byte[end - start];
             Array.Copy(rowBuffer,start,buffer,0,end);
+            #endregion
+
+           var res= this.ConnectProtocol.GetSubProtocol(buffer).Reply;
 
             LastActive = DateTime.Now;
             Monitor.Exit(this);
-            return null;
+            return res;
         }
 
         public override bool Equals(object obj)
@@ -59,13 +69,22 @@ namespace GPSServer.ServerCore.Connect
         /// <returns>一个链接</returns>
         public Connect Add(string ip, byte[] initBuffer)
         {
-            foreach (var connect in this.Where(connect => ip == connect.SessionIp))
+            try
             {
-                return connect;
+                foreach (var connect in this.Where(connect => ip == connect.SessionIp))
+                {
+                    return connect;
+                }
+                var newConnect = new Connect(ip, initBuffer);
+              this.  Add(newConnect);
+                return newConnect;
             }
-            var newConnect = new Connect(ip, initBuffer);
-            Add(newConnect);
-            return newConnect;
+            catch (Exception ex)
+            {
+                
+                throw new Exception("Can Not Match Content Or Establish!",ex);
+            }
+
         }
 
         /// <summary>
@@ -73,15 +92,21 @@ namespace GPSServer.ServerCore.Connect
         /// </summary>
         public void RecycleConnect()
         {
-            Monitor.Enter(this);
-            foreach (
-                var connect in this.Where(connect => connect.LastActive < (DateTime.Now + new TimeSpan(0, 0, 5, 0)))
-                )
+            while (true)
             {
-                connect.Dispose();
-                Remove(connect);
+                Monitor.Enter(this);
+                //foreach (
+                //    var connect in this.Where(connect => connect.LastActive < (DateTime.Now + new TimeSpan(0, 0, 5, 0)))
+                //    )
+                for (var index=0;index<this.Count;index++)
+                {
+                    this[index].Dispose();
+                    Remove(this[index]);
+                }
+                Monitor.Exit(this);
+                Thread.Sleep(new TimeSpan(0, 0, 5, 0));
             }
-            Monitor.Exit(this);
+
         }
     }
 }

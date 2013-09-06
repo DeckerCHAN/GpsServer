@@ -12,7 +12,7 @@ namespace GPSServer.ServerCore.Protocol
 
         public static void Init()
         {
-            //TODO:读取协议的XML文件
+ 
             ProtocolList = new Protocol[Directory.GetFiles("Protocols").Length];
             string[] protocolPaths = Directory.GetFiles("Protocols");
             for (int i = 0; i < protocolPaths.Length; i++)
@@ -23,41 +23,13 @@ namespace GPSServer.ServerCore.Protocol
 
                     var xml = new XmlDocument();
                     xml.Load(protocolPaths[i]);
-
-                    var symbolList = new Symbol[xml.SelectSingleNode("PROTOCOL/SYMBOLS").ChildNodes.Count];
-
-                    for (int index = 0; index < symbolList.Length; index++)
-                    {
-                        symbolList[index] =
-                            new Symbol(
-                                Convert.ToInt32(
-                                    xml.SelectNodes("PROTOCOL/SYMBOLS/SYMBOL")[index].Attributes["BYTEINDEX"].Value),
-                                Convert.ToByte(xml.SelectNodes("PROTOCOL/SYMBOLS/SYMBOL")[index].InnerText, 16));
-                    }
-                    var subProtocolList =
-                        new SubProtocol[xml.SelectSingleNode("PROTOCOL/SUBPROTOCOLS").ChildNodes.Count];
-                    for (int index = 0; index < subProtocolList.Length; index++)
-                    {
-                        var reply = new byte[xml.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("REPLY/BYTE")
-                            .Count];
-                        for (int index1 = 0; index1 < reply.Length; index1++)
-                        {
-                            reply[index1] =
-                                Convert.ToByte(xml.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("REPLY/BYTE")[index1].InnerText, 16);
-                        }
-                        subProtocolList[index] =
-                            new SubProtocol(
-                                xml.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["SUBNAME"].Value)
-                            {
-                                SymbolPoint = new Symbol(Convert.ToInt32(xml.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["BYTEINDEX"].Value), Convert.ToByte(xml.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["CODE"].Value, 16)),
-                                Reply = reply
-                            };
-                    }
+                    var protocolData = new XMLProtocolDataObject(xml);
+                  
                     //TODO:读取协议名称
-                    ProtocolList[i] = new Protocol(protocolFile.Name)
+                    ProtocolList[i] = new Protocol(protocolData.GetProtocolName())
                     {
-                        SymbolList = symbolList,
-                        SubProtocolList = subProtocolList
+                        SymbolList = protocolData.GetSymbols(),
+                        SubProtocolList = protocolData.GetSubProtocols()
                     };
                     //TODO:获取协议标准点
                 }
@@ -70,7 +42,7 @@ namespace GPSServer.ServerCore.Protocol
 
         public static Protocol GetProtocol([NotNull] byte[] firstBuffer)
         {
-            //TODO:通过第一个TCP链接完成登录功能
+            //DONE:通过第一个TCP链接完成登录功能
             foreach (Protocol protocol in ProtocolList)
             {
                 foreach (Symbol symbol in protocol.SymbolList)
@@ -121,8 +93,8 @@ namespace GPSServer.ServerCore.Protocol
                     return subProtoco;
                 }
             }
-            //TODO:如果匹配不到子协议的处理方式
-            return null;
+            //DONE:如果匹配不到子协议的处理方式
+           throw new Exception("No Such SubProtocol");
         }
     }
 
@@ -164,9 +136,10 @@ namespace GPSServer.ServerCore.Protocol
 
         internal struct DataArea
         {
+            public int StartIndex;
             public int EndIndex;
             public string FildName;
-            public int StartIndex;
+        
         }
     }
 
@@ -181,5 +154,68 @@ namespace GPSServer.ServerCore.Protocol
 
         public int BufferIndex { get; internal set; }
         public byte Value { get; internal set; }
+    }
+
+    internal class XMLProtocolDataObject
+    {
+                   //DONE:读取协议的XML文件
+        private readonly XmlDocument _sourecDocument;
+        public XMLProtocolDataObject(XmlDocument sourceDocument)
+        {
+
+            this._sourecDocument = sourceDocument;
+        }
+
+        public string GetProtocolName()
+        {
+            return _sourecDocument.SelectSingleNode("PROTOCOL/NAME").ChildNodes[0].Value.ToString();
+        }
+
+        public Symbol [] GetSymbols()
+        {
+            var symbols = new Symbol[_sourecDocument.SelectSingleNode("PROTOCOL/SYMBOLS").ChildNodes.Count];
+            for (int index = 0; index < symbols.Length; index++)
+            {
+                symbols[index] =new Symbol(Convert.ToInt32(_sourecDocument.SelectNodes("PROTOCOL/SYMBOLS/SYMBOL")[index].Attributes["BYTEINDEX"].Value),
+                        Convert.ToByte(_sourecDocument.SelectNodes("PROTOCOL/SYMBOLS/SYMBOL")[index].InnerText, 16));
+            }
+            return symbols;
+        }
+
+        public SubProtocol[] GetSubProtocols()
+        {
+            var subProtocols = new SubProtocol[_sourecDocument.SelectSingleNode("PROTOCOL/SUBPROTOCOLS").ChildNodes.Count];
+            for (var index = 0; index < subProtocols.Length; index++)
+            {
+                var reply = new byte[_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("REPLY/BYTE").Count];
+                for (int index1 = 0; index1 < reply.Length; index1++)
+                {
+                    reply[index1] =
+                        Convert.ToByte(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("REPLY/BYTE")[index1].InnerText, 16);
+                }
+                var dataAreas = new SubProtocol.DataArea[_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("FILDS/FILD").Count];
+                for (var index1 = 0; index1 < dataAreas.Length; index1++)
+                {
+                    dataAreas[index1] = new SubProtocol.DataArea()
+                    {
+                        FildName = _sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("FILDS/FILD")[index1].InnerText,
+                        EndIndex = Convert.ToInt32(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("FILDS/FILD")[index1].Attributes["ENDINDEX"].Value),
+                        StartIndex = Convert.ToInt32(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].SelectNodes("FILDS/FILD")[index1].Attributes["STARTINDEX"].Value),
+
+                    };
+                }
+                subProtocols[index] =
+                    new SubProtocol(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["SUBNAME"].Value)
+                    {
+                        SymbolPoint = new Symbol(Convert.ToInt32(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["BYTEINDEX"].Value), Convert.ToByte(_sourecDocument.SelectNodes("PROTOCOL/SUBPROTOCOLS/SUBPROTOCOL")[index].Attributes["CODE"].Value, 16)),
+                        Reply = reply,
+                        DataAreas = null
+                    };
+            }
+            return subProtocols;
+        }
+
+       
+
     }
 }

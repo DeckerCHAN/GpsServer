@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Xml;
 using GPSServer.ServerCore.Connect;
 using GPSServer.ServerCore.Protocol;
 using LumiSoft.Net;
@@ -73,9 +74,13 @@ namespace GPSServer.ServerCore
 
                     var consoleOutput = new StringBuilder();
                     consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                    while (true)
+                    while (true)  
                     {
                         var buffer = new byte[16384];
+                        if (!msg.CanRead)
+                        {
+                            break;
+                        }
                         msg.Read(buffer, 0, 16384);
                         consoleOutput = new StringBuilder();
                         consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
@@ -119,7 +124,7 @@ namespace GPSServer.ServerCore
                     //Another Way
                     //new Socket(AddressFamily.HyperChannel, SocketType.Stream, ProtocolType.Tcp).Send(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a });
                     //session.TcpStream.Flush();
-
+                    OnMessegeProcessed(this.GetDateString() + "Connect Disconnected!");
                     session.Disconnect();
                 }
                 catch (Exception ex)
@@ -148,6 +153,10 @@ namespace GPSServer.ServerCore
             _core.Stop();
         }
 
+        public void LoadConfig(XmlDocument configDocument)
+        {
+
+        }
         #endregion
 
         #region Events

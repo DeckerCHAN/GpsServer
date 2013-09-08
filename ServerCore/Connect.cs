@@ -10,7 +10,7 @@ namespace GPSServer.ServerCore.Connect
         public DateTime LastActive { get; private set; }
 
         public string SessionIp { get; private set; }
-        public Protocol.Protocol ConnectProtocol { get; private set; }
+        public dynamic ConnectProtocol { get; private set; }
 
         public Connect(string ip, byte[] initBuffer)
         {
@@ -38,7 +38,7 @@ namespace GPSServer.ServerCore.Connect
             Array.Copy(rowBuffer,start,buffer,0,end);
             #endregion
 
-           var res= this.ConnectProtocol.GetSubProtocol(buffer).Reply;
+            var res = this.ConnectProtocol.ProcessMessege(buffer);
 
             LastActive = DateTime.Now;
             Monitor.Exit(this);

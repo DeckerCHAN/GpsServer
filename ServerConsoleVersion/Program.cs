@@ -8,9 +8,9 @@ namespace GPSServer.ServerConsoleVersion
         [STAThread]
         static void Main(string[] args)
         {
+            Initialization();
             var command="";
             Console.Write("EnterPort:");
-
              var myServer = new Server(Convert.ToInt16(Console.ReadLine()));
             myServer.ServerStarted += (i, o) => Console.WriteLine("Server Starded! Port:"+o.ToString());
             myServer.ServerStoped += (i, o) => Console.WriteLine("Server Stoped!");
@@ -51,6 +51,15 @@ namespace GPSServer.ServerConsoleVersion
                
             } while (command.Trim().ToLower()!="exit");
 
+        }
+
+        static bool Initialization()
+        {
+            //TODO:检查文件完整性
+            Console.WriteLine("Server  Initializating");
+
+            Console.WriteLine("Server Finish Initializate");
+            return true;
         }
     }
 }

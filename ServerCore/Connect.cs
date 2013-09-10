@@ -11,19 +11,21 @@ namespace GPSServer.ServerCore.Connect
 
         public string SessionIp { get; private set; }
         public dynamic ConnectProtocol { get; private set; }
+        public string DeviceID { get; private set; }
 
         public Connect(string ip, byte[] initBuffer)
         {
             SessionIp = ip;
             LastActive = DateTime.Now;
             this.ConnectProtocol = Protocol.ProtocolManager.GetProtocol(initBuffer);
+            this.DeviceID = this.ConnectProtocol.GetDeviceID(initBuffer);
             this.ProcessMessege(initBuffer);
 
         }
 
         public void Dispose()
         {
-           this. SessionIp = null;
+            this.SessionIp = null;
             this.ConnectProtocol = null;
             GC.Collect();
         }
@@ -32,19 +34,24 @@ namespace GPSServer.ServerCore.Connect
         {
             Monitor.Enter(this);
             #region ConvertToStandardBuffer
-            var start = Array.IndexOf(rowBuffer, Byte.Parse("120"), 0, 2);
-            var end = Array.LastIndexOf(rowBuffer, Byte.Parse("13"))+1;
-            var buffer = new byte[end - start];
-            Array.Copy(rowBuffer,start,buffer,0,end);
+            //     var start = Array.IndexOf(rowBuffer, Byte.Parse("120"), 0, 2);
+            //   var end = Array.LastIndexOf(rowBuffer, Byte.Parse("13"))+1;
+            //    var buffer = new byte[end - start];
+            //    Array.Copy(rowBuffer,start,buffer,0,end);
             #endregion
 
-            var res = this.ConnectProtocol.ProcessMessege(buffer);
+            var res = this.ConnectProtocol.ProcessMessege(rowBuffer);
 
             LastActive = DateTime.Now;
             Monitor.Exit(this);
             return res;
         }
 
+        public string SQLCommand(byte[] rowBuffer)
+        {
+            return this.ConnectProtocol.GetSQL(rowBuffer,this.DeviceID);
+
+        }
         public override bool Equals(object obj)
         {
             return obj.ToString() == ToString();
@@ -76,13 +83,13 @@ namespace GPSServer.ServerCore.Connect
                     return connect;
                 }
                 var newConnect = new Connect(ip, initBuffer);
-              this.  Add(newConnect);
+                this.Add(newConnect);
                 return newConnect;
             }
             catch (Exception ex)
             {
-                
-                throw new Exception("Can Not Match Content Or Establish!",ex);
+
+                throw new Exception("Can Not Match Content Or Establish!", ex);
             }
 
         }
@@ -98,7 +105,7 @@ namespace GPSServer.ServerCore.Connect
                 //foreach (
                 //    var connect in this.Where(connect => connect.LastActive < (DateTime.Now + new TimeSpan(0, 0, 5, 0)))
                 //    )
-                for (var index=0;index<this.Count;index++)
+                for (var index = 0; index < this.Count; index++)
                 {
                     this[index].Dispose();
                     Remove(this[index]);

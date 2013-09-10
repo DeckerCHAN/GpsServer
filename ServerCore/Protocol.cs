@@ -20,10 +20,10 @@ namespace GPSServer.ServerCore.Protocol
             {
                 try
                 {
+                   
 
-
-                    Assembly assembly = Assembly.LoadFrom(protocolPaths[i]);
-                    Type t = assembly.GetType("Protocols.ProtocolManager");
+                    var assembly = Assembly.LoadFrom(protocolPaths[i]);
+                    var t = assembly.GetType("Protocols.ProtocolManager");
                     _protocolList[i] = t.InvokeMember("GetProtocol", BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static | BindingFlags.InvokeMethod, null, null, null);
                     
 
@@ -44,6 +44,11 @@ namespace GPSServer.ServerCore.Protocol
                 {
                     if (firstBuffer[symbol.BufferIndex] != symbol.Value)
                     {
+                        
+                        
+                        
+                        
+                        
                         break;
                     }
                     if (Array.IndexOf(protocol.SymbolList, symbol) == protocol.SymbolList.Length - 1)

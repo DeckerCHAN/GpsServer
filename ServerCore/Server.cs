@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -9,14 +10,14 @@ using GPSServer.ServerCore.Protocol;
 using LumiSoft.Net;
 using LumiSoft.Net.IO;
 using LumiSoft.Net.TCP;
+using SqlDal;
 
 
 namespace GPSServer.ServerCore
 {
     public class ServerEventArgs : EventArgs
     {
-        public string EventMessege;
-
+        public string EventMessege { get; set; }
         public ServerEventArgs(String eventMessege)
         {
             EventMessege = eventMessege;
@@ -28,12 +29,36 @@ namespace GPSServer.ServerCore
         }
     }
 
+    internal class ServerDatabaseControl
+    {
+        public string ConnectString { get; private set; }
+        public ServerDatabaseControl(string connectString)
+        {
+            ConnectString = connectString;
+        }
+
+        public void ExecuteCommand(string command)
+        {
+            try
+            {
+                SqlHelper.ExecuteNonQuery(this.ConnectString, CommandType.Text, command);
+            }
+            catch (Exception ex)
+            {
+                
+                throw new Exception("DataBaseProcessError",ex);
+            }
+           
+        }
+        
+    }
     public class Server
     {
-        private TCP_Server<TCP_ServerSession> _core;
-        private ConnectList _connects;
-        private Object DataBase;
-
+        private TCP_Server<TCP_ServerSession> _core { get; set; }
+    
+        private ConnectList _connects { get; set; }
+        private ServerDatabaseControl DataBase { get; set; }
+        private int ThreadCount { get; set; }
         //TODO:通过GET和SET加入对服务器的控制！
         //TODO:控制服务器ProcessMessege返回值
 
@@ -41,6 +66,8 @@ namespace GPSServer.ServerCore
         {
             _core = new TCP_Server<TCP_ServerSession>();
             _connects = new ConnectList();
+            DataBase = new ServerDatabaseControl("Data Source=(local);Initial Catalog=JMWEBGPS_II3;Integrated Security=True");
+            this.ThreadCount = 0;
             ProtocolManager.Init();
             try
             {
@@ -64,7 +91,8 @@ namespace GPSServer.ServerCore
         private void ProcessMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
         {
             //TODO:将获得的内容放入
-            OnMessegeProcessed(e.Session.ConnectTime + "Connect Established!");
+            OnMessegeProcessed(e.Session.ConnectTime + "Connect Established!"+" Sum Of Connect:"+this.ThreadCount);
+            this.ThreadCount++;
             new Thread(argSession =>
             {
                 try
@@ -84,7 +112,7 @@ namespace GPSServer.ServerCore
                         msg.Read(buffer, 0, 16384);
                         consoleOutput = new StringBuilder();
                         consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
-                        for (int index = 0; index < 128; index++)
+                        for (int index = 0; index < 256; index++)
                         {
                             byte t = buffer[index];
                             consoleOutput.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
@@ -92,6 +120,7 @@ namespace GPSServer.ServerCore
                         var content = this._connects.Add(session.RemoteEndPoint.ToString(), buffer);
                         try
                         {
+                            this.DataBase.ExecuteCommand(content.SQLCommand(buffer));
                             var res = content.ProcessMessege(buffer);
                             session.TcpStream.Write(res, 0, res.Length);
                             session.TcpStream.Flush();
@@ -103,12 +132,13 @@ namespace GPSServer.ServerCore
                         }
                         catch (Exception ex)
                         {
-
-                            OnServerError(GetDateString() + ex.Message + ex.ToString());
+                            //DONE:添加单次链接处理异常
+                            OnServerError(GetDateString() + ex.Message + ex.ToString() + " Sum Of Connect:" + this.ThreadCount);
+                            
                         }
 
-                        OnMessegeProcessed(session.ConnectTime + consoleOutput.ToString());
-                        //TODO:添加单次链接处理异常
+                        OnMessegeProcessed(session.ConnectTime + consoleOutput.ToString() + " Sum Of Connect:" + this.ThreadCount);
+                       
 
                     }
 
@@ -125,11 +155,13 @@ namespace GPSServer.ServerCore
                     //new Socket(AddressFamily.HyperChannel, SocketType.Stream, ProtocolType.Tcp).Send(new byte[] { 0x78, 0x78, 0x05, 0x01, 0x00, 0x01, 0xd9, 0xdc, 0x0d, 0x0a });
                     //session.TcpStream.Flush();
                     OnMessegeProcessed(this.GetDateString() + "Connect Disconnected!");
+                    this.ThreadCount--;
                     session.Disconnect();
                 }
                 catch (Exception ex)
                 {
-                    OnServerError(GetDateString() + ex.Message + ex.ToString());
+                    OnServerError(GetDateString() + ex.Message + ex.ToString() + " Sum Of Connect:" + this.ThreadCount);
+                    this.ThreadCount--;
                 }
             }).Start(e.Session);
         }

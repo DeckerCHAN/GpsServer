@@ -113,10 +113,10 @@ namespace GPSServer.ServerCore.Annotations
   /// </code>
   /// Examples of generated notifications:
   /// <list>
-  /// <item><c>NotifyChanged("Property")</c></item>
-  /// <item><c>NotifyChanged(() =&gt; Property)</c></item>
-  /// <item><c>NotifyChanged((VM x) =&gt; x.Property)</c></item>
-  /// <item><c>SetProperty(ref myField, value, "Property")</c></item>
+  /// <item><c>NotifyChanged("ProcessThread")</c></item>
+  /// <item><c>NotifyChanged(() =&gt; ProcessThread)</c></item>
+  /// <item><c>NotifyChanged((VM x) =&gt; x.ProcessThread)</c></item>
+  /// <item><c>SetProperty(ref myField, value, "ProcessThread")</c></item>
   /// </list>
   /// </example>
   [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]

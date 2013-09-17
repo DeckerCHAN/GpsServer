@@ -15,22 +15,23 @@ namespace GPSServer.ServerCore.Protocol
         {
 
             _protocolList = new dynamic[Directory.GetFiles("Protocols", "*dll").Length];
-            var protocolPaths = Directory.GetFiles("Protocols","*dll");
+            var protocolPaths = Directory.GetFiles("Protocols", "*dll");
             for (var i = 0; i < protocolPaths.Length; i++)
             {
                 try
                 {
-                   
+
 
                     var assembly = Assembly.LoadFrom(protocolPaths[i]);
-                    var t = assembly.GetType("Protocols.ProtocolManager");
+
+                    var t = assembly.GetType( Path.GetFileNameWithoutExtension(protocolPaths[i]) + ".ProtocolManager");
                     _protocolList[i] = t.InvokeMember("GetProtocol", BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static | BindingFlags.InvokeMethod, null, null, null);
-                    
+                   
 
                 }
-                catch (Exception)
+                catch 
                 {
-                  //  throw;
+                      throw;
                 }
             }
         }
@@ -44,11 +45,11 @@ namespace GPSServer.ServerCore.Protocol
                 {
                     if (firstBuffer[symbol.BufferIndex] != symbol.Value)
                     {
-                        
-                        
-                        
-                        
-                        
+
+
+
+
+
                         break;
                     }
                     if (Array.IndexOf(protocol.SymbolList, symbol) == protocol.SymbolList.Length - 1)

@@ -1,61 +1,156 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
+using LumiSoft.Net;
+using LumiSoft.Net.TCP;
 
 namespace GPSServer.ServerCore.Connect
 {
+    internal class MessegeEvnetArgs : EventArgs
+    {
+        public string Messege { get; private set; }
+
+        public MessegeEvnetArgs(string messege)
+        {
+            Messege = messege;
+        }
+
+        public override string ToString()
+        {
+            return this.Messege;
+        }
+    }
     internal class Connect : IDisposable
     {
-        public DateTime LastActive { get; private set; }
+        private TCP_ServerSession _session { get; set; }
 
-        public string SessionIp { get; private set; }
+        private ServerDatabaseControl _database { get; set; }
+        public DateTime LastActive { get; private set; }
+        private string SessionIp { get; set; }
         public dynamic ConnectProtocol { get; private set; }
         public string DeviceID { get; private set; }
+        public Thread ProcessThread { get; set; }
 
-        public Connect(string ip, byte[] initBuffer)
+        public Connect(TCP_ServerSession session, ServerDatabaseControl database)
         {
-            SessionIp = ip;
+            _session = session;
+            _database = database;
+            SessionIp = session.RemoteEndPoint.ToString();
             LastActive = DateTime.Now;
-            this.ConnectProtocol = Protocol.ProtocolManager.GetProtocol(initBuffer);
-            this.DeviceID = this.ConnectProtocol.GetDeviceID(initBuffer);
-            this.ProcessMessege(initBuffer);
-
+            this.ProcessThread = new Thread(() => ProcessMessege(session));
+            this.ProcessThread.Start();
         }
+
+        public void ProcessMessege(TCP_ServerSession session)
+        {
+
+            //byte[] rowBuffer;
+            Monitor.Enter(this);
+            var msg = session.TcpStream;
+            while (true)
+            {
+                try
+                {
+                    var buffer = new byte[ServerConfig.MaxInputBufferLength];
+                    if (!msg.CanRead)
+                    {
+                        break;
+                    }
+                    msg.Read(buffer, 0, ServerConfig.MaxInputBufferLength);
+                    if (!msg.CanRead)
+                    {
+                        break;
+                    }
+                    Monitor.Enter(this);
+                    //更新对象的最后活动时间
+                    this.LastActive = DateTime.Now;
+                    //控制台输出
+                    var consoleOutput = new StringBuilder();
+                    //将数据头部加入控制台
+                    consoleOutput.Append(" FROM: " + session.RemoteEndPoint.ToString() + " MSG:");
+                    //将流中的
+                    for (var index = 0; index < ServerConfig.MaxConsoleOutPutBufferLength; index++)
+                    {
+                        var t = buffer[index];
+                        consoleOutput.Append(Convert.ToString(t, 16).ToUpper().PadLeft(2, '0') + " ");
+                    }
+                    //本条数据异常捕获
+                    try
+                    {
+                        if (this.ConnectProtocol == null)
+                        {
+                            this.ConnectProtocol = Protocol.ProtocolManager.GetProtocol(buffer);
+                        }
+                        if (this.DeviceID == null)
+                        {
+                            this.DeviceID = this.ConnectProtocol.GetDeviceID(buffer);
+                        }
+                        var res = this.ConnectProtocol.ProcessMessege(buffer);
+                        msg.Write(res, 0, res.Length);
+                        msg.Flush();
+                        consoleOutput.Append("Replyed");
+                        foreach (var b in res)
+                        {
+                            consoleOutput.Append(Convert.ToString(b, 16).ToUpper().PadLeft(2, '0') + " ");
+                        }
+                        //执行数据库存储过程
+                        this._database.ExecuteCommand(this.ConnectProtocol.GetSQL(buffer, this.DeviceID));
+                       
+                    }
+
+                    catch (Exception ex)
+                    {
+
+                        OnError("本条处理出现异常！" + ex.Message);
+                    }
+                    OnMessege(consoleOutput.ToString());
+                    Monitor.Exit(this);
+                }
+                catch (System.Threading.ThreadAbortException ex)
+                {
+                    OnMessege("链接已经超时关闭！" + ex.Message);
+                }
+                catch (Exception ex)
+                {
+
+                    OnError("总处理线程出现异常！" + ex.ToString());
+                    break;
+
+                }
+
+            }
+            //  var res = this.ConnectProtocol.ProcessMessege(rowBuffer);
+
+
+            //  return res;
+        }
+
+        public event EventHandler MessegeCatched = null;
+        public void OnMessege(string messege)
+        {
+            EventHandler handler = MessegeCatched;
+            if (handler != null) handler(this, new MessegeEvnetArgs(messege));
+        }
+        public event EventHandler ErrorOccured = null;
+        public void OnError(string errorMessege)
+        {
+            EventHandler handler = ErrorOccured;
+            if (handler != null) handler(this, new MessegeEvnetArgs(errorMessege));
+        }
+
 
         public void Dispose()
         {
             this.SessionIp = null;
             this.ConnectProtocol = null;
+            _session.Disconnect();
+            this.ProcessThread.Abort();
             GC.Collect();
         }
 
-        public byte[] ProcessMessege(byte[] rowBuffer)
-        {
-            Monitor.Enter(this);
-            #region ConvertToStandardBuffer
-            //     var start = Array.IndexOf(rowBuffer, Byte.Parse("120"), 0, 2);
-            //   var end = Array.LastIndexOf(rowBuffer, Byte.Parse("13"))+1;
-            //    var buffer = new byte[end - start];
-            //    Array.Copy(rowBuffer,start,buffer,0,end);
-            #endregion
 
-            var res = this.ConnectProtocol.ProcessMessege(rowBuffer);
-
-            LastActive = DateTime.Now;
-            Monitor.Exit(this);
-            return res;
-        }
-
-        public string SQLCommand(byte[] rowBuffer)
-        {
-            return this.ConnectProtocol.GetSQL(rowBuffer,this.DeviceID);
-
-        }
-        public override bool Equals(object obj)
-        {
-            return obj.ToString() == ToString();
-        }
     }
 
     internal class ConnectList : List<Connect>
@@ -68,31 +163,7 @@ namespace GPSServer.ServerCore.Connect
             Recycle.Start();
         }
 
-        /// <summary>
-        ///     尝试添加一个新链接，如果链接已经存在则返回已存在的链接
-        /// </summary>
-        /// <param name="ip">链接的IP地址和端口</param>
-        /// <param name="initBuffer">识别数据流</param>
-        /// <returns>一个链接</returns>
-        public Connect Add(string ip, byte[] initBuffer)
-        {
-            try
-            {
-                foreach (var connect in this.Where(connect => ip == connect.SessionIp))
-                {
-                    return connect;
-                }
-                var newConnect = new Connect(ip, initBuffer);
-                this.Add(newConnect);
-                return newConnect;
-            }
-            catch (Exception ex)
-            {
 
-                throw new Exception("Can Not Match Content Or Establish!", ex);
-            }
-
-        }
 
         /// <summary>
         ///     用于回收超时的链接
@@ -102,16 +173,17 @@ namespace GPSServer.ServerCore.Connect
             while (true)
             {
                 Monitor.Enter(this);
-                //foreach (
-                //    var connect in this.Where(connect => connect.LastActive < (DateTime.Now + new TimeSpan(0, 0, 5, 0)))
-                //    )
+
                 for (var index = 0; index < this.Count; index++)
                 {
-                    this[index].Dispose();
-                    Remove(this[index]);
+                    if ((DateTime.Now - this[index].LastActive) > new TimeSpan(0, 0, 0, 60))
+                    {
+                        this[index].Dispose();
+                        Remove(this[index]);
+                    }
                 }
                 Monitor.Exit(this);
-                Thread.Sleep(new TimeSpan(0, 0, 5, 0));
+                Thread.Sleep(new TimeSpan(0, 0, 0, ServerConfig.MaxConnectWaitTime));
             }
 
         }

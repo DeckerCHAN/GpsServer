@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="GPSServer.ServerCore.Connect.Connect">
+    <Position X="1.75" Y="0.75" Width="4" />
+    <TypeIdentifier>
+      <HashCode>AAAAEAAAACAAAABAgAAAAAAIAAEEAAAAAAAAUAAAAAA=</HashCode>
+      <FileName>Connect.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="GPSServer.ServerCore.Connect.ConnectList">
+    <Position X="6.5" Y="1.75" Width="4" />
+    <TypeIdentifier>
+      <HashCode>AAIAAAAAAAAAAAAAAAAAAQAAAABAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Connect.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Font Name="微软雅黑" Size="9" />
+</ClassDiagram>

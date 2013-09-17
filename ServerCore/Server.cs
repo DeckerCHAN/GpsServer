@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net;
@@ -27,30 +28,6 @@ namespace GPSServer.ServerCore
         {
             return EventMessege;
         }
-    }
-
-    internal class ServerDatabaseControl
-    {
-        public string ConnectString { get; private set; }
-        public ServerDatabaseControl(string connectString)
-        {
-            ConnectString = connectString;
-        }
-
-        public void ExecuteCommand(string command)
-        {
-            try
-            {
-                SqlHelper.ExecuteNonQuery(this.ConnectString, CommandType.Text, command);
-            }
-            catch (Exception ex)
-            {
-                
-                throw new Exception("DataBaseProcessError",ex);
-            }
-           
-        }
-        
     }
     public class Server
     {
@@ -82,7 +59,6 @@ namespace GPSServer.ServerCore
             {
             }
         }
-
         private void CoreError(object sender, Error_EventArgs e)
         {
             OnServerError(e.Text);

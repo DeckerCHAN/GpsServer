@@ -176,7 +176,7 @@ namespace GPSServer.ServerCore.Connect
 
                 for (var index = 0; index < this.Count; index++)
                 {
-                    if ((DateTime.Now - this[index].LastActive) > new TimeSpan(0, 0, 0, 60))
+                    if ((DateTime.Now - this[index].LastActive) > new TimeSpan(0, 0, 0, 20))
                     {
                         this[index].Dispose();
                         Remove(this[index]);

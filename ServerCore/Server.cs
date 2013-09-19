@@ -43,7 +43,7 @@ namespace GPSServer.ServerCore
         {
             _core = new TCP_Server<TCP_ServerSession>();
             _connects = new ConnectList();
-            DataBase = new ServerDatabaseControl("Data Source=(local);Initial Catalog=JMWEBGPS_II3;Integrated Security=True");
+            DataBase = new ServerDatabaseControl();
             _core.SessionIdleTimeout = ServerConfig.MaxSessionWaitTime;
             ProtocolManager.Init();
             try
@@ -51,7 +51,7 @@ namespace GPSServer.ServerCore
                 _core.Started += (i, o) => OnServerStarted();
                 _core.Stopped += (i, o) => OnServerStoped();
                 _core.Error += CoreError;
-                _core.SessionCreated += ProcessMessege;
+                _core.SessionCreated += SendMessege;
 
                 _core.Bindings = new[] { new IPBindInfo(Dns.GetHostEntry(String.Empty).HostName, BindInfoProtocol.TCP, IPAddress.Any, port) };
             }
@@ -64,7 +64,7 @@ namespace GPSServer.ServerCore
             OnServerError(e.Text);
         }
 
-        private void ProcessMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
+        private void SendMessege(object sender, TCP_ServerSessionEventArgs<TCP_ServerSession> e)
         {
             //TODO:将获得的内容放入
            
@@ -104,7 +104,7 @@ namespace GPSServer.ServerCore
             //            try
             //            {
             //                this.DataBase.ExecuteCommand(content.SQLCommand(buffer));
-            //                var res = content.ProcessMessege(buffer);
+            //                var res = content.SendMessege(buffer);
             //                session.TcpStream.Write(res, 0, res.Length);
             //                session.TcpStream.Flush();
             //                consoleOutput.Append("REPLY");
@@ -211,6 +211,14 @@ namespace GPSServer.ServerCore
         }
 
         #endregion
+
+        public void TestSqlConnect()
+        {
+            if (this.DataBase != null)
+            {
+                OnMessege(this.DataBase.TestConnect() );
+            }
+        }
     }
 
     public static  class ServerConfig

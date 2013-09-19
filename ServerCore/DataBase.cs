@@ -11,7 +11,8 @@ namespace GPSServer.ServerCore
 
     internal class ServerDatabaseControl
     {
-        public static List<string> Log;
+        public static string DefaltConnectString = "database=JMWEBGPS_II3;Server=10.217.168.69,1433;User=sa;Password=jmgps749892hujfejhwJKJI8;Persist Security Info=True";
+        public static List<string> Log= new List<string>();
         public static void Init()
         {
             Log = new List<string>();
@@ -22,6 +23,24 @@ namespace GPSServer.ServerCore
             ConnectString = connectString;
         }
 
+        public ServerDatabaseControl()
+        {
+            ConnectString = DefaltConnectString;
+        }
+
+        public string TestConnect()
+        {
+            try
+            {
+                SqlHelper.ExecuteNonQuery(this.ConnectString, CommandType.Text, "select null");
+                return "Connect Success";
+            }
+            catch (Exception ex)
+            {
+                return "Connect Faild.Cause: "+ex.Message;
+            }
+          
+        }
         public void ExecuteCommand(string[] command)
         {
 
@@ -35,7 +54,7 @@ namespace GPSServer.ServerCore
                 {
                     //TODO::保存数据库执行错误
                     //throw new Exception("DataBaseProcessError", ex);
-                    Log.Add(ex.ToString());
+                  //  Log.Add(ex.ToString());
                 }
             }
         }

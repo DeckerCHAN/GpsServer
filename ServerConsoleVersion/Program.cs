@@ -15,7 +15,7 @@ namespace GPSServer.ServerConsoleVersion
             myServer.ServerStarted += (i, o) => Console.WriteLine("Server Starded! Port:"+o.ToString());
             myServer.ServerStoped += (i, o) => Console.WriteLine("Server Stoped!");
             myServer.ServerError += (i, o) => Console.WriteLine("Server Error! Port:" + o.ToString());
-            myServer.Messege += (i, o) => Console.WriteLine(Environment.NewLine+"Messege Hearded:"+o.ToString());
+            myServer.Messege += (i, o) => Console.WriteLine(Environment.NewLine+"Messege From Server:"+o.ToString());
             Console.WriteLine("Please Enter Your Command:");
 
             do
@@ -38,6 +38,11 @@ namespace GPSServer.ServerConsoleVersion
                         case "stop":
                         {
                             myServer.StopServer();
+                            break;
+                        }
+                        case "testsqlconnect":
+                        {
+                            myServer.TestSqlConnect();
                             break;
                         }
                         default:
